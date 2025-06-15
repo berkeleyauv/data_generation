@@ -24,8 +24,8 @@ def paste_overlay(
     background: Image.Image,
     overlay: Image.Image,
     class_id: int,
-    scale_range=(0.1, 0.7),
-    rotation_range=(-60, 60),
+    scale_range=(0.3, 0.7),
+    rotation_range=(-20, 20),
     perspective_offset=0.15,
 ):
     bg = background.copy().convert("RGBA")
