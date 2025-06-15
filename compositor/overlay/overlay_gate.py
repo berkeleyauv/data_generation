@@ -20,25 +20,6 @@ def random_perspective_transform(img_np, max_offset=0.2):
     warped = cv2.warpPerspective(img_np, M, (w, h), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0, 0))
     return warped
 
-def random_hue_saturation(img_np, max_hue_shift=15, sat_scale_range=(0.8, 1.2)):
-    """Apply hue shift and saturation scale on an RGBA image."""
-    img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGBA2BGR)
-    hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV).astype(np.float32)
-
-    # Hue shift
-    hue_shift = random.uniform(-max_hue_shift, max_hue_shift)
-    hsv[..., 0] = (hsv[..., 0] + hue_shift) % 180
-
-    # Saturation scale
-    sat_scale = random.uniform(*sat_scale_range)
-    hsv[..., 1] *= sat_scale
-    hsv[..., 1] = np.clip(hsv[..., 1], 0, 255)
-
-    bgr = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
-    rgba = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGBA)
-    rgba[..., 3] = img_np[..., 3]  # Preserve alpha channel
-    return rgba
-
 def paste_overlay(
     background: Image.Image,
     overlay: Image.Image,
@@ -46,8 +27,6 @@ def paste_overlay(
     scale_range=(0.1, 0.7),
     rotation_range=(-60, 60),
     perspective_offset=0.15,
-    hue_shift_max=15,
-    sat_scale_range=(0.8, 1.2)
 ):
     bg = background.copy().convert("RGBA")
     ov = overlay.convert("RGBA")
@@ -65,16 +44,8 @@ def paste_overlay(
     angle = random.uniform(*rotation_range)
     ov = ov.rotate(angle, expand=True)
 
-    # Convert to NumPy for OpenCV operations
     ov_np = np.array(ov)
-
-    # Perspective warp
     ov_np = random_perspective_transform(ov_np, max_offset=perspective_offset)
-
-    # Hue/saturation jitter
-    ov_np = random_hue_saturation(ov_np, max_hue_shift=hue_shift_max, sat_scale_range=sat_scale_range)
-
-    # Back to PIL
     ov = Image.fromarray(ov_np)
 
     new_w, new_h = ov.size
