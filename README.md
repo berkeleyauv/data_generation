@@ -6,17 +6,42 @@ This code expects:
 ```bash
 DATA_ROOT/
 ├── backgrounds/        # Folder containing background images (.jpg/.png)
-├── target/             # Folder containing target images (.jpg/.png)
-└── output/             # Generated composites and labels will be saved here
+├── targets_original/   # Folder containing real target images (.jpg/.png)
+├── targets_fake/       # Folder containing fake target images (.jpg/.png)
 ```
 ## Usage
 Run from the project root:
 
+without fake images (generates 10):
+
 ```bash
 python generate.py \
-  --backgrounds_dir DATA_ROOT/backgrounds \
-  --targets_dir DATA_ROOT/target \
-  --output_dir DATA_ROOT/output \
-  --overlay_func compositor.overlay.overlay_gate.paste_overlay
+  --backgrounds_dir backgrounds \
+  --real_targets_dir targets_original \
+  --output_img_dir output_images \
+  --output_yolo_dir output_yolo \
+  --max_attempts 20 \
+  --num_backgrounds 10
 ```
-(currently provides only one overlay function: overlay_gate. can replace with more kinds in the future)
+with fake images (adds a single fake image (randomly chosen from a set of fake images) along with real target images)
+
+```bash
+python generate.py \
+  --backgrounds_dir backgrounds \
+  --real_targets_dir targets_original \
+  --fake_targets_dir targets_fake \
+  --output_img_dir output_images \
+  --output_yolo_dir output_yolo \
+  --max_attempts 20 \
+  --num_backgrounds 10
+```
+torpedo_overlay.py run command
+(must already have output folders WITHOUT fake images)
+
+```bash
+python -m compositor.overlay.overlay_torpedo \
+  --images_dir output_images \
+  --yolo_dir output_yolo \
+  --output_dir torpedo_images \
+  --output_yolo_dir torpedo_yolo
+```
