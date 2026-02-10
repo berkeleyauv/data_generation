@@ -1,83 +1,75 @@
-from load_env import (
-    BACKGROUNDS_DIR, TARGET_ASSETS_DIR, OUTPUT_DIR
-)
-
 import os
-import random
 import argparse
 from PIL import Image
-import numpy as np
-from datetime import datetime
+from compositor.overlay.overlay_multiple import paste_multiple_overlay
 
-from compositor.augment import augment 
-from compositor.overlay import overlay_gate
+def load_images_from_folder(folder):
+    files = []
+    for f in os.listdir(folder):
+        if f.lower().endswith((".png", ".jpg", ".jpeg")):
+            path = os.path.join(folder, f)
+            try:
+                files.append(Image.open(path))
+            except:
+                print(f"Could not load image: {path}")
+    return files
 
-TARGET_PATHS = {
-    "reef_shark": os.path.join(TARGET_ASSETS_DIR, "Task01_ReefShark.png"),
-    "sawfish": os.path.join(TARGET_ASSETS_DIR, "Task01_Sawfish.png")
-}
+def main(backgrounds_dir, real_targets_dir, fake_targets_dir, output_img_dir, output_yolo_dir, max_attempts, num_backgrounds=None):
+    os.makedirs(output_img_dir, exist_ok=True)
+    os.makedirs(output_yolo_dir, exist_ok=True)
 
-CLASS_MAP = {
-    "reef_shark": 0,
-    "sawfish": 1
-}
+    backgrounds = load_images_from_folder(backgrounds_dir)
+    real_targets = load_images_from_folder(real_targets_dir)
 
-timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    fake_targets = []
+    if fake_targets_dir:
+        fake_targets = load_images_from_folder(fake_targets_dir)
 
-OUTPUT_IMAGES_DIR = os.path.join(OUTPUT_DIR, f'{timestamp}/images')
-OUTPUT_LABELS_DIR = os.path.join(OUTPUT_DIR, f'{timestamp}/labels')
+    if num_backgrounds is not None:
+        backgrounds = backgrounds[:num_backgrounds]
 
-def get_random_background(bg_files):
-    bg_path = random.choice(bg_files)
-    return Image.open(bg_path).convert("RGB")
+    for i, bg in enumerate(backgrounds):
+        composite, labels = paste_multiple_overlay(
+            bg, real_targets, fake_targets, max_attempts=max_attempts
+        )
 
-def get_random_target():
-    class_name = random.choice(["reef_shark", "sawfish"])
-    class_id = CLASS_MAP[class_name]
-    target_path = TARGET_PATHS[class_name]
-    target_img = Image.open(target_path).convert("RGBA")
-    return target_img, class_id
+        img_name = f"img_{i:05d}.jpg"
+        label_name = f"img_{i:05d}.txt"
 
-def save_label(label_dict, label_path):
-    class_id = label_dict['class_id']
-    xc, yc, w, h = label_dict['bbox']
-    with open(label_path, 'w') as f:
-        f.write(f"{class_id} {xc} {yc} {w} {h}\n")
+        img_path = os.path.join(output_img_dir, img_name)
+        yolo_path = os.path.join(output_yolo_dir, label_name)
 
-def main(num_samples):
-    os.makedirs(OUTPUT_IMAGES_DIR, exist_ok=True)
-    os.makedirs(OUTPUT_LABELS_DIR, exist_ok=True)
+        composite.save(img_path, quality=95)
 
-    bg_files = [os.path.join(BACKGROUNDS_DIR, f) for f in os.listdir(BACKGROUNDS_DIR) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+        with open(yolo_path, "w") as f:
+            for lb in labels:
+                class_id = lb["class_id"]
+                x, y, w, h = lb["bbox"]
+                f.write(f"{class_id} {x:.6f} {y:.6f} {w:.6f} {h:.6f}\n")
 
-    i = 0
-    while i < num_samples:
-        bg = get_random_background(bg_files)
-        target_img, class_id = get_random_target()
+        print(f"Generated {img_name} + {label_name}")
 
-        # augment target image
-        target_img_aug = augment(target_img)
-
-        # overlay onto random background
-        composite, label = overlay_gate.paste_overlay(bg, target_img_aug, class_id)
-
-        # Handle cases where overlay didn't fit
-        if composite is None:
-            continue
-
-        # Save output image and label
-        image_filename = f"sample_{i:05d}.jpg"
-        label_filename = f"sample_{i:05d}.txt"
-
-        composite.save(os.path.join(OUTPUT_IMAGES_DIR, image_filename))
-        save_label(label, os.path.join(OUTPUT_LABELS_DIR, label_filename))
-
-        print(f"[{i}] Saved {image_filename}")
-        i += 1
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_samples', type=int, default=100)
+
+    parser.add_argument("--backgrounds_dir", required=True)
+    parser.add_argument("--real_targets_dir", required=True)
+    parser.add_argument("--fake_targets_dir", default=None, help="Folder with fake target images (optional)")
+
+    parser.add_argument("--output_img_dir", required=True)
+    parser.add_argument("--output_yolo_dir", required=True)
+
+    parser.add_argument("--max_attempts", type=int, default=20)
+    parser.add_argument("--num_backgrounds", type=int, default=None, help="Number of backgrounds to process")
+
     args = parser.parse_args()
 
-    main(args.num_samples)
+    main(
+        args.backgrounds_dir,
+        args.real_targets_dir,
+        args.fake_targets_dir,
+        args.output_img_dir,
+        args.output_yolo_dir,
+        args.max_attempts,
+        args.num_backgrounds
+    )
