@@ -9,7 +9,9 @@ def load_images_from_folder(folder):
         if f.lower().endswith((".png", ".jpg", ".jpeg")):
             path = os.path.join(folder, f)
             try:
-                files.append(Image.open(path))
+                img = Image.open(path)
+                files.append(img.copy())
+                img.close()
             except:
                 print(f"Could not load image: {path}")
     return files
