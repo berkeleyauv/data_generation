@@ -4,11 +4,13 @@ from PIL import Image
 import random
 from compositor.overlay.overlay_single import paste_single_overlay
 
+#LazyLoading: Loads paths instead of all the images at once so that the system doesn't crash
+ # useful because strings hold less memory than 
 def load_paths_from_folder(folder):
     paths = []
     for f in os.listdir(folder):
-        if f.lower().endswith((".png", ".jpg", ".jpeg")):
-            paths.append(os.path.join(folder, f))
+        if f.lower().endswith((".png", ".jpg", ".jpeg")): 
+            paths.append(os.path.join(folder, f)) #attached any file path that is an image within the folder. 
     return paths
 
 def main(backgrounds_dir, real_targets_dir, fake_targets_dir, output_img_dir, output_yolo_dir, max_attempts, num_backgrounds=None):
@@ -22,6 +24,7 @@ def main(backgrounds_dir, real_targets_dir, fake_targets_dir, output_img_dir, ou
         background_paths = background_paths[:num_backgrounds]
 
     for i, bg_path in enumerate(background_paths):
+        #chooses a random index from the target images to use on each background
         target_idx = random.randint(0, len(real_target_paths) - 1)
         class_id = target_idx + 1
 

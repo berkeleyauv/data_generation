@@ -23,6 +23,18 @@ python generate.py \
   --max_attempts 20 \
   --num_backgrounds 10
 ```
+
+to have multiple target images placed on your image, instead use generate_multiple.py.
+
+```bash
+python generate_multiple.py \
+  --backgrounds_dir backgrounds \
+  --real_targets_dir targets_original \
+  --output_img_dir output_images \
+  --output_yolo_dir output_yolo \
+  --max_attempts 20 \
+  --num_backgrounds 10
+```
 with fake images (adds a single fake image (randomly chosen from a set of fake images) along with real target images)
 
 ```bash
@@ -45,3 +57,6 @@ python -m compositor.overlay.overlay_torpedo \
   --output_dir torpedo_images \
   --output_yolo_dir torpedo_yolo
 ```
+
+To visualize labels: 
+python visualize_labels.py
