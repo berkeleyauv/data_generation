@@ -28,6 +28,7 @@ def main(backgrounds_dir, real_targets_dir, fake_targets_dir, output_img_dir, ou
         target_idx = random.randint(0, len(real_target_paths) - 1)
         class_id = target_idx + 1
 
+        #Adjusted opening method to use paths instead of the actual image. 
         with Image.open(bg_path) as bg:
             with Image.open(real_target_paths[target_idx]) as target:
                 composite, labels = paste_single_overlay(
