@@ -1,37 +1,39 @@
 import os
 import argparse
 from PIL import Image
-from compositor.overlay.overlay_multiple import paste_multiple_overlay
+import random
+from compositor.overlay.overlay_single import paste_single_overlay
 
-def load_images_from_folder(folder):
-    files = []
+#LazyLoading: Loads paths instead of all the images at once so that the system doesn't crash
+ # useful because strings hold less memory than 
+def load_paths_from_folder(folder):
+    paths = []
     for f in os.listdir(folder):
-        if f.lower().endswith((".png", ".jpg", ".jpeg")):
-            path = os.path.join(folder, f)
-            try:
-                files.append(Image.open(path))
-            except:
-                print(f"Could not load image: {path}")
-    return files
+        if f.lower().endswith((".png", ".jpg", ".jpeg")): 
+            paths.append(os.path.join(folder, f)) #attached any file path that is an image within the folder. 
+    return paths
 
 def main(backgrounds_dir, real_targets_dir, fake_targets_dir, output_img_dir, output_yolo_dir, max_attempts, num_backgrounds=None):
     os.makedirs(output_img_dir, exist_ok=True)
     os.makedirs(output_yolo_dir, exist_ok=True)
 
-    backgrounds = load_images_from_folder(backgrounds_dir)
-    real_targets = load_images_from_folder(real_targets_dir)
-
-    fake_targets = []
-    if fake_targets_dir:
-        fake_targets = load_images_from_folder(fake_targets_dir)
+    background_paths = load_paths_from_folder(backgrounds_dir)
+    real_target_paths = load_paths_from_folder(real_targets_dir)
 
     if num_backgrounds is not None:
-        backgrounds = backgrounds[:num_backgrounds]
+        background_paths = background_paths[:num_backgrounds]
 
-    for i, bg in enumerate(backgrounds):
-        composite, labels = paste_multiple_overlay(
-            bg, real_targets, fake_targets, max_attempts=max_attempts
-        )
+    for i, bg_path in enumerate(background_paths):
+        #chooses a random index from the target images to use on each background
+        target_idx = random.randint(0, len(real_target_paths) - 1)
+        class_id = target_idx + 1
+
+        #Adjusted opening method to use paths instead of the actual image. 
+        with Image.open(bg_path) as bg:
+            with Image.open(real_target_paths[target_idx]) as target:
+                composite, labels = paste_single_overlay(
+                    bg.copy(), target.copy(), class_id=class_id, max_attempts=max_attempts
+                )
 
         img_name = f"img_{i:05d}.jpg"
         label_name = f"img_{i:05d}.txt"
@@ -41,11 +43,15 @@ def main(backgrounds_dir, real_targets_dir, fake_targets_dir, output_img_dir, ou
 
         composite.save(img_path, quality=95)
 
+        bbox = labels.get("bbox")
+        if not bbox:
+            print(f"Warning: no placement for {img_name}, saving empty label")
+            open(yolo_path, "w").close()
+            continue
+
         with open(yolo_path, "w") as f:
-            for lb in labels:
-                class_id = lb["class_id"]
-                x, y, w, h = lb["bbox"]
-                f.write(f"{class_id} {x:.6f} {y:.6f} {w:.6f} {h:.6f}\n")
+            x, y, w, h = bbox
+            f.write(f"{class_id} {x:.6f} {y:.6f} {w:.6f} {h:.6f}\n")
 
         print(f"Generated {img_name} + {label_name}")
 
@@ -54,13 +60,11 @@ if __name__ == "__main__":
 
     parser.add_argument("--backgrounds_dir", required=True)
     parser.add_argument("--real_targets_dir", required=True)
-    parser.add_argument("--fake_targets_dir", default=None, help="Folder with fake target images (optional)")
-
+    parser.add_argument("--fake_targets_dir", default=None)
     parser.add_argument("--output_img_dir", required=True)
     parser.add_argument("--output_yolo_dir", required=True)
-
     parser.add_argument("--max_attempts", type=int, default=20)
-    parser.add_argument("--num_backgrounds", type=int, default=None, help="Number of backgrounds to process")
+    parser.add_argument("--num_backgrounds", type=int, default=None)
 
     args = parser.parse_args()
 
