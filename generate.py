@@ -1,7 +1,8 @@
 import os
 import argparse
 from PIL import Image
-from compositor.overlay.overlay_multiple import paste_multiple_overlay
+from compositor.overlay.overlay_single import paste_single_overlay
+
 
 def load_images_from_folder(folder):
     files = []
@@ -9,7 +10,9 @@ def load_images_from_folder(folder):
         if f.lower().endswith((".png", ".jpg", ".jpeg")):
             path = os.path.join(folder, f)
             try:
-                files.append(Image.open(path))
+                img = Image.open(path)
+                files.append(img.copy())
+                img.close()
             except:
                 print(f"Could not load image: {path}")
     return files
@@ -29,7 +32,7 @@ def main(backgrounds_dir, real_targets_dir, fake_targets_dir, output_img_dir, ou
         backgrounds = backgrounds[:num_backgrounds]
 
     for i, bg in enumerate(backgrounds):
-        composite, labels = paste_multiple_overlay(
+        composite, labels = paste_single_overlay(
             bg, real_targets, fake_targets, max_attempts=max_attempts
         )
 
