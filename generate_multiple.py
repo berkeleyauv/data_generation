@@ -3,6 +3,7 @@ import argparse
 from PIL import Image
 from compositor.overlay.overlay_multiple import paste_multiple_overlay
 
+
 def load_images_from_folder(folder):
     files = []
     for f in os.listdir(folder):
@@ -10,11 +11,20 @@ def load_images_from_folder(folder):
             path = os.path.join(folder, f)
             try:
                 files.append(Image.open(path))
-            except:
+            except Exception:
                 print(f"Could not load image: {path}")
     return files
 
-def main(backgrounds_dir, real_targets_dir, fake_targets_dir, output_img_dir, output_yolo_dir, max_attempts, num_backgrounds=None):
+
+def main(
+    backgrounds_dir,
+    real_targets_dir,
+    fake_targets_dir,
+    output_img_dir,
+    output_yolo_dir,
+    max_attempts,
+    num_backgrounds=None,
+):
     os.makedirs(output_img_dir, exist_ok=True)
     os.makedirs(output_yolo_dir, exist_ok=True)
 
@@ -49,18 +59,28 @@ def main(backgrounds_dir, real_targets_dir, fake_targets_dir, output_img_dir, ou
 
         print(f"Generated {img_name} + {label_name}")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--backgrounds_dir", required=True)
     parser.add_argument("--real_targets_dir", required=True)
-    parser.add_argument("--fake_targets_dir", default=None, help="Folder with fake target images (optional)")
+    parser.add_argument(
+        "--fake_targets_dir",
+        default=None,
+        help="Folder with fake target images (optional)",
+    )
 
     parser.add_argument("--output_img_dir", required=True)
     parser.add_argument("--output_yolo_dir", required=True)
 
     parser.add_argument("--max_attempts", type=int, default=20)
-    parser.add_argument("--num_backgrounds", type=int, default=None, help="Number of backgrounds to process")
+    parser.add_argument(
+        "--num_backgrounds",
+        type=int,
+        default=None,
+        help="Number of backgrounds to process",
+    )
 
     args = parser.parse_args()
 
@@ -71,5 +91,5 @@ if __name__ == "__main__":
         args.output_img_dir,
         args.output_yolo_dir,
         args.max_attempts,
-        args.num_backgrounds
+        args.num_backgrounds,
     )

@@ -1,23 +1,23 @@
-import os
 import cv2
 import numpy as np
 from pathlib import Path
 
-IMAGE_DIR  = "output_images"         
-LABEL_DIR  = "output_yolo"        
-OUTPUT_DIR = "visualized"  
+IMAGE_DIR = "output_images"
+LABEL_DIR = "output_yolo"
+OUTPUT_DIR = "visualized"
 
 # Optional: map class IDs to names, e.g. {0: "cat", 1: "dog"}
 CLASS_NAMES = {}
 
-#Drawing Settings
-BOX_THICKNESS  = 2
-FONT_SCALE     = 0.6
+# Drawing Settings
+BOX_THICKNESS = 2
+FONT_SCALE = 0.6
 FONT_THICKNESS = 1
 
 # If True, each class gets a unique color; if False, all boxes are green
 COLORIZE_BY_CLASS = True
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 # color per class/image
 def class_color(class_id: int):
@@ -40,7 +40,7 @@ def draw_yolo_boxes(image_path: Path, label_path: Path, output_path: Path):
         return
 
     with open(label_path) as f:
-        lines = [l.strip() for l in f if l.strip()]
+        lines = [line.strip() for line in f if line.strip()]
 
     for line in lines:
         parts = line.split()
@@ -66,18 +66,22 @@ def draw_yolo_boxes(image_path: Path, label_path: Path, output_path: Path):
         # Background rectangle for text
         cv2.rectangle(img, (x1, y1 - th - baseline - 4), (x1 + tw + 4, y1), color, -1)
         cv2.putText(
-            img, label,
+            img,
+            label,
             (x1 + 2, y1 - baseline - 2),
-            cv2.FONT_HERSHEY_SIMPLEX, FONT_SCALE,
-            (255, 255, 255), FONT_THICKNESS, cv2.LINE_AA
+            cv2.FONT_HERSHEY_SIMPLEX,
+            FONT_SCALE,
+            (255, 255, 255),
+            FONT_THICKNESS,
+            cv2.LINE_AA,
         )
 
     cv2.imwrite(str(output_path), img)
 
 
 def main():
-    image_dir  = Path(IMAGE_DIR)
-    label_dir  = Path(LABEL_DIR)
+    image_dir = Path(IMAGE_DIR)
+    label_dir = Path(LABEL_DIR)
     output_dir = Path(OUTPUT_DIR)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -91,7 +95,7 @@ def main():
     print(f"Found {len(image_files)} images. Processing...")
 
     for i, img_path in enumerate(sorted(image_files), 1):
-        label_path  = label_dir  / (img_path.stem + ".txt")
+        label_path = label_dir / (img_path.stem + ".txt")
         output_path = output_dir / img_path.name
         draw_yolo_boxes(img_path, label_path, output_path)
         if i % 500 == 0 or i == len(image_files):

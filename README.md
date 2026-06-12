@@ -142,3 +142,26 @@ python generate.py \
 ```bash
 python3 visualize_labels.py
 ```
+## 5. Testing
+In order to test if generated data produces the right boxes we use the following files to test our outputs: 
+- tests/test_generate.py — unit tests for path loading and label file writing in the main pipeline
+- tests/test_overlay_single.py — unit tests for the overlay logic including bbox math, normalization, color matching, and regression detection
+- tests/test_smoke.py — end-to-end pipeline test using real fixture images to validate full output correctness
+- tests/fixtures/ — tiny sample backgrounds and targets used by the smoke test
+- pytest.ini — pytest configuration telling it to treat the repo root as the Python path
+- conftest.py — empty file that marks the repo root as the pytest project root
+- .github/workflows/ci.yml — GitHub Actions workflow that runs linting, formatting checks, and all tests on every push and pull request
+
+How to run tests individually or by file:
+
+``` bash
+pytest tests/ -v
+```
+
+Use the following command to run all of the tests at once: 
+
+``` bash
+pytest tests/ -v
+```
+
+If successful it should say "30 passed in 2.04s," there are 30 tests total.
