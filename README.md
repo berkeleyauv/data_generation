@@ -152,10 +152,14 @@ In order to test if generated data produces the right boxes we use the following
 - conftest.py — empty file that marks the repo root as the pytest project root
 - .github/workflows/ci.yml — GitHub Actions workflow that runs linting, formatting checks, and all tests on every push and pull request
 
-How to run tests individually or by file:
+Running tests by file:
 
 ``` bash
-pytest tests/ -v
+pytest tests/test_generate.py -v
+pytest tests/test_overlay_single.py -v
+pytest tests/test_smoke.py -v
+
+
 ```
 
 Use the following command to run all of the tests at once: 
