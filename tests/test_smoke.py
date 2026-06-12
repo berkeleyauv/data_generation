@@ -100,9 +100,9 @@ class TestSmokePipeline:
                 assert class_id >= 1, f"{fname}: class_id must be >= 1"
                 assert 0.0 <= x <= 1.0, f"{fname}: x_center out of range: {x}"
                 assert 0.0 <= y <= 1.0, f"{fname}: y_center out of range: {y}"
-                assert 0.0 < w <= 1.0,  f"{fname}: width out of range: {w}"
-                assert 0.0 < h <= 1.0,  f"{fname}: height out of range: {h}"
-                assert w > 0 and h > 0,  f"{fname}: zero-area bbox"
+                assert 0.0 < w <= 1.0, f"{fname}: width out of range: {w}"
+                assert 0.0 < h <= 1.0, f"{fname}: height out of range: {h}"
+                assert w > 0 and h > 0, f"{fname}: zero-area bbox"
 
                 # No NaNs
                 for val in [x, y, w, h]:
