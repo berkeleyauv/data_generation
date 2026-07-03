@@ -3,3 +3,9 @@ test_data/
 __pycache__/
 
 visualizer.py
+
+.DS_Store
+
+targets_fake
+targets_original/
+output_yolo/

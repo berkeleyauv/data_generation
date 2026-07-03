@@ -3,24 +3,36 @@ import numpy as np
 from PIL import Image
 import cv2
 
+
 def random_perspective_transform(img_np, max_offset=0.1):
     h, w = img_np.shape[:2]
     dx = int(w * max_offset)
     dy = int(h * max_offset)
 
     src = np.float32([[0, 0], [w, 0], [w, h], [0, h]])
-    dst = np.float32([
-        [random.randint(0, dx), random.randint(0, dy)],
-        [w - random.randint(0, dx), random.randint(0, dy)],
-        [w - random.randint(0, dx), h - random.randint(0, dy)],
-        [random.randint(0, dx), h - random.randint(0, dy)]
-    ])
+    dst = np.float32(
+        [
+            [random.randint(0, dx), random.randint(0, dy)],
+            [w - random.randint(0, dx), random.randint(0, dy)],
+            [w - random.randint(0, dx), h - random.randint(0, dy)],
+            [random.randint(0, dx), h - random.randint(0, dy)],
+        ]
+    )
     M = cv2.getPerspectiveTransform(src, dst)
-    warped = cv2.warpPerspective(img_np, M, (w, h), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0, 0))
+    warped = cv2.warpPerspective(
+        img_np, M, (w, h), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0, 0)
+    )
     return warped
 
-def paste_single_overlay(background: Image.Image, overlay: Image.Image, class_id: int,
-                         scale_range=(0.2, 0.6), max_attempts=20, color_match_strength=0.05):
+
+def paste_single_overlay(
+    background: Image.Image,
+    overlay: Image.Image,
+    class_id: int,
+    scale_range=(0.2, 0.6),
+    max_attempts=20,
+    color_match_strength=0.05,
+):
     """
     Paste a single target image onto a background with:
         - slight perspective warp
@@ -53,7 +65,9 @@ def paste_single_overlay(background: Image.Image, overlay: Image.Image, class_id
         y_min = random.randint(0, bg_h - ov.height)
 
         # --- Subtle color matching ---
-        bg_crop = bg.crop((x_min, y_min, x_min + ov.width, y_min + ov.height)).convert("RGB")
+        bg_crop = bg.crop((x_min, y_min, x_min + ov.width, y_min + ov.height)).convert(
+            "RGB"
+        )
         ov_rgb = ov.convert("RGB")
 
         bg_np = np.array(bg_crop).astype(np.float32)

@@ -62,10 +62,9 @@ def main(images_dir, yolo_dir, output_dir, output_yolo_dir):
             box_x_px = x * w_img
             box_y_px = y * h_img
 
-            left   = box_x_px - box_w_px / 2
-            top    = box_y_px - box_h_px / 2
-            right  = box_x_px + box_w_px / 2
-            bottom = box_y_px + box_h_px / 2
+            left = box_x_px - box_w_px / 2
+            top = box_y_px - box_h_px / 2
+            right = box_x_px + box_w_px / 2
 
             ring_center_x = (left + right) / 2
             ring_center_y = top + box_h_px * 0.75

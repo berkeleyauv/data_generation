@@ -3,7 +3,6 @@ import random
 import numpy as np
 from PIL import Image
 import cv2
-import os
 
 
 def random_perspective_transform(img_np, max_offset=0.1):
@@ -12,15 +11,19 @@ def random_perspective_transform(img_np, max_offset=0.1):
     dy = int(h * max_offset)
 
     src = np.float32([[0, 0], [w, 0], [w, h], [0, h]])
-    dst = np.float32([
-        [random.randint(0, dx), random.randint(0, dy)],
-        [w - random.randint(0, dx), random.randint(0, dy)],
-        [w - random.randint(0, dx), h - random.randint(0, dy)],
-        [random.randint(0, dx), h - random.randint(0, dy)]
-    ])
+    dst = np.float32(
+        [
+            [random.randint(0, dx), random.randint(0, dy)],
+            [w - random.randint(0, dx), random.randint(0, dy)],
+            [w - random.randint(0, dx), h - random.randint(0, dy)],
+            [random.randint(0, dx), h - random.randint(0, dy)],
+        ]
+    )
 
     M = cv2.getPerspectiveTransform(src, dst)
-    warped = cv2.warpPerspective(img_np, M, (w, h), borderMode=cv2.BORDER_CONSTANT, borderValue=(0,0,0,0))
+    warped = cv2.warpPerspective(
+        img_np, M, (w, h), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0, 0)
+    )
     return warped
 
 
@@ -33,8 +36,8 @@ def match_hue_subtle(overlay_np, background_np):
     ov_rgb = overlay_np[..., :3].astype(np.float32)
     bg_rgb = background_np[..., :3].astype(np.float32)
 
-    ov_mean = ov_rgb.mean(axis=(0,1))
-    bg_mean = bg_rgb.mean(axis=(0,1))
+    ov_mean = ov_rgb.mean(axis=(0, 1))
+    bg_mean = bg_rgb.mean(axis=(0, 1))
 
     ov_rgb += 0.05 * (bg_mean - ov_mean)
     ov_rgb = np.clip(ov_rgb, 0, 255).astype(np.uint8)
@@ -107,12 +110,17 @@ def paste_multiple_overlay(background, real_overlays, fake_overlays, max_attempt
             new_box = (x_min, y_min, new_w, new_h)
 
             if not check_overlap(new_box, placed_boxes):
-                alpha = ov_np[..., 3] / 255.0 if ov_np.shape[2] == 4 else np.ones((new_h, new_w))
+                alpha = (
+                    ov_np[..., 3] / 255.0
+                    if ov_np.shape[2] == 4
+                    else np.ones((new_h, new_w))
+                )
 
                 for c in range(3):
-                    bg_np[y_min:y_min+new_h, x_min:x_min+new_w, c] = (
-                        alpha * ov_np[..., c] +
-                        (1 - alpha) * bg_np[y_min:y_min+new_h, x_min:x_min+new_w, c]
+                    bg_np[y_min : y_min + new_h, x_min : x_min + new_w, c] = (
+                        alpha * ov_np[..., c]
+                        + (1 - alpha)
+                        * bg_np[y_min : y_min + new_h, x_min : x_min + new_w, c]
                     )
 
                 placed_boxes.append(new_box)
@@ -122,10 +130,9 @@ def paste_multiple_overlay(background, real_overlays, fake_overlays, max_attempt
                 w_norm = new_w / bg.width
                 h_norm = new_h / bg.height
 
-                labels.append({
-                    "class_id": class_id,
-                    "bbox": (x_center, y_center, w_norm, h_norm)
-                })
+                labels.append(
+                    {"class_id": class_id, "bbox": (x_center, y_center, w_norm, h_norm)}
+                )
 
                 success = True
                 break
