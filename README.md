@@ -1,40 +1,20 @@
-# Data Generation
-Scripts for generating synthetic datasets for deep learning. Includes random augmentation and supports dynamic overlays, automatic class mapping, and even distribution of target images across all backgrounds.
-**Step by Step demo at the bottom.** 
+# gate_overlay
 
+Generate synthetic gate images by compositing cropped gate targets onto background images. This branch supports the gate-overlay workflow only.
 
-## Directory Setup
-This code expects:
-```bash
-data_generation/        #repo root/project root
-├── backgrounds/        # Folder containing background images (.jpg/.png)
-├── targets_original/   # Folder containing real target images (.jpg/.png)
-├── targets_fake/       # Folder containing fake target images (.jpg/.png)
-├── compositor/ 
-├── generate.py 
-├── requirements.txt
-...
+## Supported Workflow
 
-```
-**backgrounds** - In this you would put all the backgrounds you want to generate image target overlays over.
+`generate.py` uses `compositor/overlay/overlay_gate.py` to resize, lightly perspective-warp, color-match, and blur each gate composite. The legacy torpedo overlay, old single-overlay path, and multiple-overlay path are outdated and unsupported on this branch:
 
+- `compositor/overlay/overlay_torpedo.py`
+- `compositor/overlay/overlay_single.py`
+- `compositor/overlay/overlay_multiple.py`
 
-**targets_original** - Put all the cropped target images you want to lay on backgrounds here.
+Use the gate-overlay workflow below; do not use the legacy torpedo, single, or multiple workflows.
 
+## Inputs
 
-**targets_fake** - Put all the fake target images here.
-
-
-## Usage
-Run from the project root:
-
-By default, `generate.py` writes YOLO pose labels: class ID, normalized bounding
-box, then four corner keypoints in top-left, top-right, bottom-right, bottom-left
-order. Each keypoint is stored as normalized `x y visibility`, with visibility
-set to `2`, followed by normalized `[x, y, w, h]` boxes for the left post, right
-post, and crossbar, in that order. Configure the training dataset with
-`kpt_shape: [4, 3]`. Single-target generation requires a same-stem JSON sidecar
-beside every target image, with normalized component boxes, for example:
+Place background images in `backgrounds/` and cropped gate images in `targets_original/`. Every gate image needs a same-stem JSON sidecar containing normalized component boxes. For example, `gate_01.png` needs `gate_01.json`:
 
 ```json
 {
@@ -44,108 +24,11 @@ beside every target image, with normalized component boxes, for example:
 }
 ```
 
-The appended component boxes make this a project-specific 29-value row, not a
-standard YOLO pose row; use a matching label parser for training.
+Each box is `[center_x, center_y, width, height]`, normalized to the source gate image. Values must be between 0 and 1, and width and height must be positive.
 
-The `--multiple` mode writes regular YOLO detection boxes instead.
+## Generate Images
 
-
-without fake images (generates 10):
-
-
-```bash
-python generate.py \
- --backgrounds_dir backgrounds \
- --real_targets_dir targets_original \
- --output_img_dir output_images \
- --output_yolo_dir output_yolo \
- --max_attempts 20 \
- --num_backgrounds 10
-```
-
-
-To place multiple target images on each background, add `--multiple`:
-
-
-```bash
-python generate.py \
- --backgrounds_dir backgrounds \
- --real_targets_dir targets_original \
- --output_img_dir output_images \
- --output_yolo_dir output_yolo \
- --max_attempts 20 \
- --num_backgrounds 10 \
- --multiple
-```
-With multiple mode, `--fake_targets_dir` optionally adds one randomly selected fake target per image. Single-target mode writes YOLO pose labels; multiple mode writes regular YOLO detection boxes.
-
-
-```bash
-python generate.py \
- --backgrounds_dir backgrounds \
- --real_targets_dir targets_original \
- --fake_targets_dir targets_fake \
- --output_img_dir output_images \
- --output_yolo_dir output_yolo \
- --max_attempts 20 \
- --num_backgrounds 10 \
- --multiple
-```
-torpedo_overlay.py run command
-(must already have output folders WITHOUT fake images)
-
-
-```bash
-python -m compositor.overlay.overlay_torpedo \
- --images_dir output_images \
- --yolo_dir output_yolo \
- --output_dir torpedo_images \
- --output_yolo_dir torpedo_yolo
-```
-
-
-To visualize labels:
-python visualize_labels.py
-
-
-Here's the shortened version with proper code blocks:
-
----
-
-# Step by Step Demo
-
-**Case:** Train a YOLOv8 model to detect a beachball in a pool from a camera feed.
-
-## 1. Setup
-
-```bash
-git clone https://github.com/berkeleyauv/data_generation.git
-```
-
-- **Backgrounds** — pool/underwater images matching your deployment environment
-- **Targets** — 50–200 images of the beachball across varied orientations, lighting, and scales
-- **Fakes** *(optional)* — ~10–20 cropped images of beachball-like objects the model might confuse
-
-## 2. Crop Your Targets (via Roboflow)
-
-1. Upload target images to a [Roboflow](https://roboflow.com/) project
-2. Manually label 10–20 images; auto-label the rest and review
-3. Export a version using Roboflow's **crop tool**
-4. Replace your `targets_original/` folder with the downloaded dataset
-
-Repeat for fake targets if needed.
-
-## 3. Generate Data
-
-Ensure your directories are structured as:
-
-```
-targets_original/   # cropped target images
-targets_fake/       # cropped fake images (optional)
-backgrounds/        # background images
-```
-
-Then run:
+Run from the repository root. This example creates 10 images and labels in `output_images/` and `output_yolo/`:
 
 ```bash
 python generate.py \
@@ -154,41 +37,29 @@ python generate.py \
   --output_img_dir output_images \
   --output_yolo_dir output_yolo \
   --max_attempts 20 \
-  --num_backgrounds 15000
+  --num_backgrounds 10
 ```
 
-- Add `--multiple` to `generate.py` to place multiple beachballs per image
-- Adjust `--num_backgrounds` to change output count
+Backgrounds are reused as needed to reach `--num_backgrounds`. Target class IDs are assigned starting at 1 in sorted target-filename order.
 
-## 4. Visualize Labels *(optional)*
+## Label Format
+
+Each label row contains 29 values in this order:
+
+```text
+class x y w h
+x1 y1 v1 x2 y2 v2 x3 y3 v3 x4 y4 v4
+x_l y_l w_l h_l x_r y_r w_r h_r x_c y_c w_c h_c
+```
+
+All coordinates and box sizes are normalized to the generated image. The gate box is `[center_x, center_y, width, height]`. The four keypoints are the warped gate corners in top-left, top-right, bottom-right, bottom-left order; visibility is `2` when visible and `0` when outside the image. The final three boxes are left post, right post, and crossbar, each in `[center_x, center_y, width, height]` order.
+
+This 29-value row is project-specific, not a standard YOLO pose row. Training code must use a parser that understands the appended component boxes.
+
+## Tests
+
+Run the test suite with:
 
 ```bash
-python3 visualize_labels.py
-```
-## 5. Testing
-In order to test if generated data produces the right boxes we use the following files to test our outputs: 
-- tests/test_generate.py — unit tests for path loading and label file writing in the main pipeline
-- tests/test_overlay_single.py — unit tests for the overlay logic including bbox math, normalization, color matching, and regression detection
-- tests/test_smoke.py — end-to-end pipeline test using real fixture images to validate full output correctness
-- tests/fixtures/ — tiny sample backgrounds and targets used by the smoke test
-- pytest.ini — pytest configuration telling it to treat the repo root as the Python path
-- conftest.py — empty file that marks the repo root as the pytest project root
-- .github/workflows/ci.yml — GitHub Actions workflow that runs linting, formatting checks, and all tests on every push and pull request
-
-Running tests by file:
-
-``` bash
-pytest tests/test_generate.py -v
-pytest tests/test_overlay_single.py -v
-pytest tests/test_smoke.py -v
-
-
-```
-
-Use the following command to run all of the tests at once: 
-
-``` bash
 pytest tests/ -v
 ```
-
-If successful it should say "30 passed in 2.04s," there are 30 tests total.
