@@ -8,8 +8,8 @@ def augment(
     image: Image.Image,
     brightness_range: tuple = (0.5, 1.2),
     contrast_range: tuple = (0.5, 1.6),
-    blur_prob: float = 0.3,  # much lower probability
-    blur_kernel_range: tuple = (3, 5),  # very slight blur
+    blur_prob: float = 0.8,  # much lower probability
+    blur_kernel_range: tuple = (3, 8),  # very slight blur
     jpeg_compression_prob: float = 0.0,  # skip compression
 ) -> Image.Image:
     """

@@ -28,6 +28,27 @@ data_generation/        #repo root/project root
 ## Usage
 Run from the project root:
 
+By default, `generate.py` writes YOLO pose labels: class ID, normalized bounding
+box, then four corner keypoints in top-left, top-right, bottom-right, bottom-left
+order. Each keypoint is stored as normalized `x y visibility`, with visibility
+set to `2`, followed by normalized `[x, y, w, h]` boxes for the left post, right
+post, and crossbar, in that order. Configure the training dataset with
+`kpt_shape: [4, 3]`. Single-target generation requires a same-stem JSON sidecar
+beside every target image, with normalized component boxes, for example:
+
+```json
+{
+  "left_post": [0.05, 0.5, 0.08, 0.9],
+  "right_post": [0.95, 0.5, 0.08, 0.9],
+  "crossbar": [0.5, 0.08, 0.9, 0.08]
+}
+```
+
+The appended component boxes make this a project-specific 29-value row, not a
+standard YOLO pose row; use a matching label parser for training.
+
+The `--multiple` mode writes regular YOLO detection boxes instead.
+
 
 without fake images (generates 10):
 
@@ -43,19 +64,20 @@ python generate.py \
 ```
 
 
-to have multiple target images placed on your image, instead use generate_multiple.py.
+To place multiple target images on each background, add `--multiple`:
 
 
 ```bash
-python generate_multiple.py \
+python generate.py \
  --backgrounds_dir backgrounds \
  --real_targets_dir targets_original \
  --output_img_dir output_images \
  --output_yolo_dir output_yolo \
  --max_attempts 20 \
- --num_backgrounds 10
+ --num_backgrounds 10 \
+ --multiple
 ```
-with fake images (adds a single fake image (randomly chosen from a set of fake images) along with real target images)
+With multiple mode, `--fake_targets_dir` optionally adds one randomly selected fake target per image. Single-target mode writes YOLO pose labels; multiple mode writes regular YOLO detection boxes.
 
 
 ```bash
@@ -66,7 +88,8 @@ python generate.py \
  --output_img_dir output_images \
  --output_yolo_dir output_yolo \
  --max_attempts 20 \
- --num_backgrounds 10
+ --num_backgrounds 10 \
+ --multiple
 ```
 torpedo_overlay.py run command
 (must already have output folders WITHOUT fake images)
@@ -134,7 +157,7 @@ python generate.py \
   --num_backgrounds 15000
 ```
 
-- Swap `generate.py` → `generate_multiple.py` to place ~10 beachballs per image
+- Add `--multiple` to `generate.py` to place multiple beachballs per image
 - Adjust `--num_backgrounds` to change output count
 
 ## 4. Visualize Labels *(optional)*

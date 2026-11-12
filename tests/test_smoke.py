@@ -92,10 +92,14 @@ class TestSmokePipeline:
 
             for line in content.splitlines():
                 parts = line.strip().split()
-                assert len(parts) == 5, f"{fname}: expected 5 values, got {len(parts)}"
+                assert len(parts) == 29, (
+                    f"{fname}: expected 29 values, got {len(parts)}"
+                )
 
                 class_id = int(parts[0])
-                x, y, w, h = map(float, parts[1:])
+                x, y, w, h = map(float, parts[1:5])
+                keypoints = list(map(float, parts[5:17]))
+                part_boxes = list(map(float, parts[17:]))
 
                 assert class_id >= 1, f"{fname}: class_id must be >= 1"
                 assert 0.0 <= x <= 1.0, f"{fname}: x_center out of range: {x}"
@@ -107,6 +111,21 @@ class TestSmokePipeline:
                 # No NaNs
                 for val in [x, y, w, h]:
                     assert val == val, f"{fname}: NaN found in bbox"
+
+                for keypoint_index in range(0, len(keypoints), 3):
+                    keypoint_x, keypoint_y, visibility = keypoints[
+                        keypoint_index : keypoint_index + 3
+                    ]
+                    assert 0.0 <= keypoint_x <= 1.0, f"{fname}: keypoint x out of range"
+                    assert 0.0 <= keypoint_y <= 1.0, f"{fname}: keypoint y out of range"
+                    assert visibility == 2.0, f"{fname}: keypoint should be visible"
+
+                for box_index in range(0, len(part_boxes), 4):
+                    part_x, part_y, part_w, part_h = part_boxes[box_index : box_index + 4]
+                    assert 0.0 <= part_x <= 1.0, f"{fname}: part x out of range"
+                    assert 0.0 <= part_y <= 1.0, f"{fname}: part y out of range"
+                    assert 0.0 < part_w <= 1.0, f"{fname}: part width out of range"
+                    assert 0.0 < part_h <= 1.0, f"{fname}: part height out of range"
 
     def test_num_backgrounds_limit(self, output_dirs):
         """num_backgrounds parameter correctly limits output count."""

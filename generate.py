@@ -1,8 +1,11 @@
 import os
 import argparse
-from PIL import Image
+import json
+import math
+from PIL import Image, ImageFilter
 import random
-from compositor.overlay.overlay_single import paste_single_overlay
+from compositor.overlay.overlay_gate import paste_single_overlay
+from compositor.overlay.overlay_multiple import paste_multiple_overlay
 
 
 # LazyLoading: Loads paths instead of all the images at once so that the system doesn't crash
@@ -17,6 +20,44 @@ def load_paths_from_folder(folder):
     return paths
 
 
+def load_images_from_paths(paths):
+    images = []
+    for path in paths:
+        with Image.open(path) as image:
+            images.append(image.copy())
+    return images
+
+
+def load_part_boxes(target_path):
+    annotation_path = os.path.splitext(target_path)[0] + ".json"
+    with open(annotation_path) as annotation_file:
+        annotations = json.load(annotation_file)
+
+    names = ("left_post", "right_post", "crossbar")
+    part_boxes = {}
+    for name in names:
+        values = annotations.get(name)
+        if not isinstance(values, list) or len(values) != 4:
+            raise ValueError(
+                f"{annotation_path} must contain {name} as [x, y, w, h]"
+            )
+        x, y, width, height = map(float, values)
+        if (
+            not all(math.isfinite(value) for value in (x, y, width, height))
+            or width <= 0
+            or height <= 0
+            or x - width / 2 < 0
+            or y - height / 2 < 0
+            or x + width / 2 > 1
+            or y + height / 2 > 1
+        ):
+            raise ValueError(
+                f"{annotation_path} has an invalid normalized box for {name}"
+            )
+        part_boxes[name] = (x, y, width, height)
+    return part_boxes
+
+
 def main(
     backgrounds_dir,
     real_targets_dir,
@@ -25,30 +66,55 @@ def main(
     output_yolo_dir,
     max_attempts,
     num_backgrounds=None,
+    multiple=False,
 ):
     os.makedirs(output_img_dir, exist_ok=True)
     os.makedirs(output_yolo_dir, exist_ok=True)
 
     background_paths = load_paths_from_folder(backgrounds_dir)
-    real_target_paths = load_paths_from_folder(real_targets_dir)
+    real_target_paths = sorted(load_paths_from_folder(real_targets_dir))
+    fake_target_paths = load_paths_from_folder(fake_targets_dir) if fake_targets_dir else []
+
+    if fake_target_paths and not multiple:
+        raise ValueError("fake_targets_dir can only be used with multiple=True")
+
+    if multiple:
+        real_targets = load_images_from_paths(real_target_paths)
+        fake_targets = load_images_from_paths(fake_target_paths)
 
     if num_backgrounds is not None:
-        background_paths = background_paths[:num_backgrounds]
+        if num_backgrounds < 0:
+            raise ValueError("num_backgrounds must be non-negative")
+        if num_backgrounds and not background_paths:
+            raise ValueError("Cannot generate images: backgrounds directory is empty")
+        background_paths = [
+            background_paths[index % len(background_paths)]
+            for index in range(num_backgrounds)
+        ]
 
     for i, bg_path in enumerate(background_paths):
-        # chooses a random index from the target images to use on each background
-        target_idx = random.randint(0, len(real_target_paths) - 1)
-        class_id = target_idx + 1
-
-        # Adjusted opening method to use paths instead of the actual image.
-        with Image.open(bg_path) as bg:
-            with Image.open(real_target_paths[target_idx]) as target:
-                composite, labels = paste_single_overlay(
+        if multiple:
+            with Image.open(bg_path) as bg:
+                composite, labels = paste_multiple_overlay(
                     bg.copy(),
-                    target.copy(),
-                    class_id=class_id,
+                    real_targets,
+                    fake_targets,
                     max_attempts=max_attempts,
                 )
+        else:
+            target_idx = i % len(real_target_paths)
+            class_id = target_idx + 1
+            target_path = real_target_paths[target_idx]
+            part_boxes = load_part_boxes(target_path)
+            with Image.open(bg_path) as bg:
+                with Image.open(target_path) as target:
+                    composite, labels = paste_single_overlay(
+                        bg.copy(),
+                        target.copy(),
+                        class_id=class_id,
+                        part_boxes=part_boxes,
+                        max_attempts=max_attempts,
+                    )
 
         img_name = f"img_{i:05d}.jpg"
         label_name = f"img_{i:05d}.txt"
@@ -61,17 +127,39 @@ def main(
             open(yolo_path, "w").close()
             continue
 
+        teal_tint = Image.new("RGB", composite.size, (85, 145, 150))
+        composite = Image.blend(composite.convert("RGB"), teal_tint, 0.06)
+        blur_radius = random.uniform(0.6, 1.2)
+        composite = composite.filter(ImageFilter.GaussianBlur(radius=blur_radius))
         composite.save(img_path, quality=95)
 
-        bbox = labels.get("bbox")
-        if not bbox:
-            print(f"Warning: no placement for {img_name}, saving empty label")
-            open(yolo_path, "w").close()
-            continue
-
         with open(yolo_path, "w") as f:
-            x, y, w, h = bbox
-            f.write(f"{class_id} {x:.6f} {y:.6f} {w:.6f} {h:.6f}\n")
+            if multiple:
+                for label in labels:
+                    label_class_id = label["class_id"]
+                    x, y, w, h = label["bbox"]
+                    f.write(
+                        f"{label_class_id} {x:.6f} {y:.6f} {w:.6f} {h:.6f}\n"
+                    )
+            else:
+                bbox = labels.get("bbox")
+                keypoints = labels.get("keypoints")
+                if not bbox or not keypoints:
+                    print(f"Warning: no pose placement for {img_name}, saving empty label")
+                    continue
+                x, y, w, h = bbox
+                pose_values = " ".join(
+                    f"{coord:.6f}" for point in keypoints for coord in point
+                )
+                part_values = " ".join(
+                    f"{coord:.6f}"
+                    for name in ("left_post", "right_post", "crossbar")
+                    for coord in labels["part_boxes"][name]
+                )
+                f.write(
+                    f"{class_id} {x:.6f} {y:.6f} {w:.6f} {h:.6f} "
+                    f"{pose_values} {part_values}\n"
+                )
 
         print(f"Generated {img_name} + {label_name}")
 
@@ -86,6 +174,11 @@ if __name__ == "__main__":
     parser.add_argument("--output_yolo_dir", required=True)
     parser.add_argument("--max_attempts", type=int, default=20)
     parser.add_argument("--num_backgrounds", type=int, default=None)
+    parser.add_argument(
+        "--multiple",
+        action="store_true",
+        help="Overlay all real targets instead of cycling one target per image",
+    )
 
     args = parser.parse_args()
 
@@ -97,4 +190,5 @@ if __name__ == "__main__":
         args.output_yolo_dir,
         args.max_attempts,
         args.num_backgrounds,
+        args.multiple,
     )

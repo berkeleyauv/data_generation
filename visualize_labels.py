@@ -59,6 +59,24 @@ def draw_yolo_boxes(image_path: Path, label_path: Path, output_path: Path):
 
         cv2.rectangle(img, (x1, y1), (x2, y2), color, BOX_THICKNESS)
 
+        if len(parts) >= 17:
+            keypoints = [
+                (
+                    int(float(parts[index]) * w),
+                    int(float(parts[index + 1]) * h),
+                )
+                for index in range(5, 17, 3)
+            ]
+            for point_index, point in enumerate(keypoints):
+                cv2.line(
+                    img,
+                    point,
+                    keypoints[(point_index + 1) % len(keypoints)],
+                    color,
+                    BOX_THICKNESS,
+                )
+                cv2.circle(img, point, 4, color, -1)
+
         label = CLASS_NAMES.get(class_id, str(class_id))
         (tw, th), baseline = cv2.getTextSize(
             label, cv2.FONT_HERSHEY_SIMPLEX, FONT_SCALE, FONT_THICKNESS
