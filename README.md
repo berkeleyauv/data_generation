@@ -4,7 +4,9 @@ Generate synthetic gate images by compositing cropped gate targets onto backgrou
 
 ## Supported Workflow
 
-`generate.py` uses `compositor/overlay/overlay_gate.py` to resize, lightly perspective-warp, color-match, and blur each gate composite. The legacy torpedo overlay, old single-overlay path, and multiple-overlay path are outdated and unsupported on this branch:
+`generate.py` uses `compositor/overlay/overlay_gate.py` to resize, perspective-warp, color-match, and blur each gate composite. The gate's average color is strongly shifted toward its local background, and a randomized Jerlov water tint is applied to the full composite. The tint is sampled across water types I through IC, with a blend strength of 35% to 65%.
+
+The legacy torpedo overlay, old single-overlay path, and multiple-overlay path are outdated and unsupported on this branch:
 
 - `compositor/overlay/overlay_torpedo.py`
 - `compositor/overlay/overlay_single.py`
@@ -28,19 +30,17 @@ Each box is `[center_x, center_y, width, height]`, normalized to the source gate
 
 ## Generate Images
 
-Run from the repository root. This example creates 10 images and labels in `output_images/` and `output_yolo/`:
+Run from the repository root. By default, images and labels are written to `output_images/` and `output_yolo/`. Repeated runs reuse these same folders and overwrite files with matching names; no new per-run folders are created.
 
 ```bash
 python generate.py \
   --backgrounds_dir backgrounds \
   --real_targets_dir targets_original \
-  --output_img_dir output_images \
-  --output_yolo_dir output_yolo \
   --max_attempts 20 \
   --num_backgrounds 10
 ```
 
-Backgrounds are reused as needed to reach `--num_backgrounds`. Target class IDs are assigned starting at 1 in sorted target-filename order.
+Use `--output_img_dir` or `--output_yolo_dir` only when intentionally choosing different output locations. Without `--num_backgrounds`, the pipeline creates one output for each available background. When the requested count is larger than the number of available backgrounds, it processes backgrounds in filename order and cycles through them round-robin. Target class IDs are assigned starting at 1 in sorted target-filename order.
 
 ## Label Format
 

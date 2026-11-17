@@ -2,7 +2,7 @@ import json
 from unittest.mock import patch
 import numpy as np
 from PIL import Image
-from generate import load_paths_from_folder, main
+from generate import apply_jerlov_color_augmentation, load_paths_from_folder, main
 from compositor.overlay.overlay_gate import paste_single_overlay
 
 
@@ -16,6 +16,49 @@ def write_part_annotations(target_path):
             }
         )
     )
+
+
+def test_jerlov_color_augmentation_covers_type_endpoints():
+    image = Image.new("RGB", (2, 1), color=(100, 100, 100))
+    image.putpixel((1, 0), (200, 100, 50))
+
+    with patch("generate.random.uniform", side_effect=[0, 0.5]):
+        type_i = apply_jerlov_color_augmentation(image)
+    with patch("generate.random.uniform", side_effect=[5, 0.5]):
+        type_ic = apply_jerlov_color_augmentation(image)
+
+    assert type_i.getpixel((0, 0)) == (50, 121, 153)
+    assert type_i.getpixel((1, 0)) == (100, 121, 128)
+    assert type_ic.getpixel((0, 0)) == (50, 97, 69)
+    assert type_ic.getpixel((1, 0)) == (100, 97, 44)
+    assert type_i.getpixel((0, 0)) != type_ic.getpixel((0, 0))
+
+
+def test_gate_color_is_strongly_matched_to_background():
+    background = Image.new("RGB", (20, 20), color=(0, 200, 0))
+    target = Image.new("RGBA", (10, 10), color=(200, 0, 0, 255))
+
+    def identity_transform(image, max_offset=0.2, return_corners=False):
+        height, width = image.shape[:2]
+        corners = np.float32([[0, 0], [width, 0], [width, height], [0, height]])
+        return (image, corners) if return_corners else image
+
+    with patch(
+        "compositor.overlay.overlay_gate.random_perspective_transform",
+        side_effect=identity_transform,
+    ), patch(
+        "compositor.overlay.overlay_gate.random.randint", side_effect=[5, 5]
+    ):
+        composite, _ = paste_single_overlay(
+            background, target, class_id=1, scale_range=(0.5, 0.5), max_attempts=1
+        )
+
+    matched_color = composite.getpixel((10, 10))
+    background_color = (0, 200, 0)
+    original_distance = np.linalg.norm(np.array((200, 0, 0)) - background_color)
+    matched_distance = np.linalg.norm(np.array(matched_color) - background_color)
+    assert matched_distance < original_distance * 0.2
+
 
 # pytest tests/ -v
 
@@ -125,7 +168,13 @@ def test_reuses_backgrounds_to_match_requested_count(tmp_path):
     tgt_dir = tmp_path / "targets"
     bg_dir.mkdir()
     tgt_dir.mkdir()
-    Image.new("RGB", (640, 480), color="blue").save(bg_dir / "bg.jpg")
+    background_colors = {
+        "bg_a.png": (255, 0, 0),
+        "bg_b.png": (0, 255, 0),
+        "bg_c.png": (0, 0, 255),
+    }
+    for filename, color in background_colors.items():
+        Image.new("RGB", (640, 480), color=color).save(bg_dir / filename)
     target_path = tgt_dir / "target.png"
     Image.new("RGBA", (50, 50), color="red").save(target_path)
     write_part_annotations(target_path)
@@ -151,12 +200,24 @@ def test_reuses_backgrounds_to_match_requested_count(tmp_path):
             str(img_dir),
             str(lbl_dir),
             max_attempts=5,
-            num_backgrounds=3,
+            num_backgrounds=7,
         )
 
-    assert paste_overlay.call_count == 3
-    assert len(list(img_dir.glob("*.jpg"))) == 3
-    assert len(list(lbl_dir.glob("*.txt"))) == 3
+    assert paste_overlay.call_count == 7
+    assert len(list(img_dir.glob("*.jpg"))) == 7
+    assert len(list(lbl_dir.glob("*.txt"))) == 7
+    used_background_colors = [
+        call.args[0].getpixel((0, 0)) for call in paste_overlay.call_args_list
+    ]
+    assert used_background_colors == [
+        (255, 0, 0),
+        (0, 255, 0),
+        (0, 0, 255),
+        (255, 0, 0),
+        (0, 255, 0),
+        (0, 0, 255),
+        (255, 0, 0),
+    ]
 
 
 def test_single_mode_cycles_through_targets(tmp_path):

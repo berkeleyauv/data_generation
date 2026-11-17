@@ -8,6 +8,33 @@ from compositor.overlay.overlay_gate import paste_single_overlay
 from compositor.overlay.overlay_multiple import paste_multiple_overlay
 
 
+JERLOV_COLORS = (
+    (0, 142, 207),  # I
+    (0, 137, 194),  # IA
+    (0, 119, 170),  # IB
+    (0, 105, 139),  # II
+    (0, 112, 111),  # III
+    (0, 94, 39),  # IC
+)
+
+
+def apply_jerlov_color_augmentation(image):
+    position = random.uniform(0, len(JERLOV_COLORS) - 1)
+    lower_index = int(position)
+    upper_index = min(lower_index + 1, len(JERLOV_COLORS) - 1)
+    fraction = position - lower_index
+    color = tuple(
+        round(
+            JERLOV_COLORS[lower_index][channel] * (1 - fraction)
+            + JERLOV_COLORS[upper_index][channel] * fraction
+        )
+        for channel in range(3)
+    )
+    strength = random.uniform(0.35, 0.65)
+    tint = Image.new("RGB", image.size, color)
+    return Image.blend(image.convert("RGB"), tint, strength)
+
+
 # LazyLoading: Loads paths instead of all the images at once so that the system doesn't crash
 # useful because strings hold less memory than
 def load_paths_from_folder(folder):
@@ -17,7 +44,7 @@ def load_paths_from_folder(folder):
             paths.append(
                 os.path.join(folder, f)
             )  # attached any file path that is an image within the folder.
-    return paths
+    return sorted(paths)
 
 
 def load_images_from_paths(paths):
@@ -127,8 +154,7 @@ def main(
             open(yolo_path, "w").close()
             continue
 
-        teal_tint = Image.new("RGB", composite.size, (85, 145, 150))
-        composite = Image.blend(composite.convert("RGB"), teal_tint, 0.06)
+        composite = apply_jerlov_color_augmentation(composite)
         blur_radius = random.uniform(0.6, 1.2)
         composite = composite.filter(ImageFilter.GaussianBlur(radius=blur_radius))
         composite.save(img_path, quality=95)
@@ -165,13 +191,23 @@ def main(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
 
     parser.add_argument("--backgrounds_dir", required=True)
     parser.add_argument("--real_targets_dir", required=True)
     parser.add_argument("--fake_targets_dir", default=None)
-    parser.add_argument("--output_img_dir", required=True)
-    parser.add_argument("--output_yolo_dir", required=True)
+    parser.add_argument(
+        "--output_img_dir",
+        default="output_images",
+        help="Output folder for generated images",
+    )
+    parser.add_argument(
+        "--output_yolo_dir",
+        default="output_yolo",
+        help="Output folder for YOLO labels",
+    )
     parser.add_argument("--max_attempts", type=int, default=20)
     parser.add_argument("--num_backgrounds", type=int, default=None)
     parser.add_argument(

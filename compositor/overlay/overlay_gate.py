@@ -33,7 +33,7 @@ def paste_single_overlay(
     class_id: int,
     scale_range=(0.2, 0.9),
     max_attempts=20,
-    color_match_strength=0.3,
+    color_match_strength=0.9,
     part_boxes=None,
 ):
     """
@@ -59,7 +59,7 @@ def paste_single_overlay(
         x_min = random.randint(min(0, bg_w - ov.width), max(0, bg_w - ov.width))
         y_min = random.randint(min(0, bg_h - ov.height), max(0, bg_h - ov.height))
 
-        # --- Subtle color matching ---
+        # --- Match the target's average color to its local background ---
         bg_crop = bg.crop((x_min, y_min, x_min + ov.width, y_min + ov.height)).convert(
             "RGB"
         )
@@ -71,7 +71,7 @@ def paste_single_overlay(
         ov_mean = ov_np_rgb.mean(axis=(0, 1))
         bg_mean = bg_np.mean(axis=(0, 1))
 
-        # Apply small shift toward background color
+        # Shift the target strongly toward the background color
         ov_np_rgb = ov_np_rgb + (bg_mean - ov_mean) * color_match_strength
         ov_np_rgb = np.clip(ov_np_rgb, 0, 255).astype(np.uint8)
         ov_rgb = Image.fromarray(ov_np_rgb)
